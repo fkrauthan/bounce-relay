@@ -1,9 +1,12 @@
 use crate::AppConfig;
 use anyhow::{Context, Result, bail};
-use sea_query::{ColumnDef, Expr, ForeignKey, Iden, Index, MysqlQueryBuilder, PostgresQueryBuilder, QueryBuilder, SchemaBuilder, SqliteQueryBuilder, Table};
+use sea_query::{
+    ColumnDef, Expr, ForeignKey, Iden, Index, MysqlQueryBuilder, PostgresQueryBuilder,
+    QueryBuilder, SchemaBuilder, SqliteQueryBuilder, Table,
+};
 use sqlx::AnyConnection;
 use sqlx::Connection;
-use sqlx::any::{install_default_drivers};
+use sqlx::any::install_default_drivers;
 
 pub struct DBConnection {
     pub connection: AnyConnection,
@@ -15,7 +18,7 @@ pub enum EmailRoute {
     Table,
     Id,
     Domain,
-    URL,
+    Url,
     SecretToken,
     IsActive,
 }
@@ -28,7 +31,7 @@ impl Iden for EmailRoute {
                 Self::Table => "email_routes",
                 Self::Id => "id",
                 Self::Domain => "domain",
-                Self::URL => "url",
+                Self::Url => "url",
                 Self::SecretToken => "secret_token",
                 Self::IsActive => "is_active",
             }
@@ -44,6 +47,8 @@ pub enum WebhookQueue {
     Payload,
     Attempts,
     NextRetryAt,
+    LastError,
+    IsExpired,
     CreatedAt,
 }
 impl Iden for WebhookQueue {
@@ -58,6 +63,8 @@ impl Iden for WebhookQueue {
                 Self::Payload => "payload",
                 Self::Attempts => "attempts",
                 Self::NextRetryAt => "next_retry_at",
+                Self::LastError => "last_error",
+                Self::IsExpired => "is_expired",
                 Self::CreatedAt => "created_at",
             }
         )
@@ -106,7 +113,7 @@ pub async fn initialize_database(mut db: DBConnection) -> Result<()> {
                 .primary_key(),
         )
         .col(ColumnDef::new(EmailRoute::Domain).string().not_null())
-        .col(ColumnDef::new(EmailRoute::URL).string().not_null())
+        .col(ColumnDef::new(EmailRoute::Url).string().not_null())
         .col(ColumnDef::new(EmailRoute::SecretToken).string().not_null())
         .col(
             ColumnDef::new(EmailRoute::IsActive)
@@ -127,6 +134,16 @@ pub async fn initialize_database(mut db: DBConnection) -> Result<()> {
         .col(EmailRoute::IsActive)
         .build_any(schema_builder);
     sqlx::query(&email_routes_index)
+        .execute(&mut db.connection)
+        .await?;
+
+    let email_routes_enabled_index = Index::create()
+        .name("idx_route_enabled_lookup")
+        .if_not_exists()
+        .table(EmailRoute::Table)
+        .col(EmailRoute::IsActive)
+        .build_any(schema_builder);
+    sqlx::query(&email_routes_enabled_index)
         .execute(&mut db.connection)
         .await?;
 
@@ -159,17 +176,24 @@ pub async fn initialize_database(mut db: DBConnection) -> Result<()> {
                 .not_null()
                 .default(Expr::current_timestamp()),
         )
+        .col(ColumnDef::new(WebhookQueue::LastError).text().null())
+        .col(
+            ColumnDef::new(WebhookQueue::IsExpired)
+                .boolean()
+                .not_null()
+                .default(false),
+        )
         .col(
             ColumnDef::new(WebhookQueue::CreatedAt)
                 .timestamp_with_time_zone()
                 .not_null()
-                .default(Expr::current_timestamp())
-            ,
+                .default(Expr::current_timestamp()),
         )
-        .foreign_key(ForeignKey::create()
-            .name("fk_queue_to_route")
-            .from(WebhookQueue::Table, WebhookQueue::EmailRouteId)
-            .to(EmailRoute::Table, EmailRoute::Id)
+        .foreign_key(
+            ForeignKey::create()
+                .name("fk_queue_to_route")
+                .from(WebhookQueue::Table, WebhookQueue::EmailRouteId)
+                .to(EmailRoute::Table, EmailRoute::Id),
         )
         .build_any(schema_builder);
     sqlx::query(&webhook_queue)
@@ -181,6 +205,7 @@ pub async fn initialize_database(mut db: DBConnection) -> Result<()> {
         .if_not_exists()
         .table(WebhookQueue::Table)
         .col(WebhookQueue::NextRetryAt)
+        .col(WebhookQueue::IsExpired)
         .build_any(schema_builder);
     sqlx::query(&webhooks_queue_index)
         .execute(&mut db.connection)
