@@ -18,6 +18,7 @@ pub enum EmailRoute {
     Table,
     Id,
     Domain,
+    User,
     Url,
     SecretToken,
     IsActive,
@@ -31,6 +32,7 @@ impl Iden for EmailRoute {
                 Self::Table => "email_routes",
                 Self::Id => "id",
                 Self::Domain => "domain",
+                Self::User => "user",
                 Self::Url => "url",
                 Self::SecretToken => "secret_token",
                 Self::IsActive => "is_active",
@@ -113,6 +115,7 @@ pub async fn initialize_database(mut db: DBConnection) -> Result<()> {
                 .primary_key(),
         )
         .col(ColumnDef::new(EmailRoute::Domain).string().not_null())
+        .col(ColumnDef::new(EmailRoute::User).string().null())
         .col(ColumnDef::new(EmailRoute::Url).string().not_null())
         .col(ColumnDef::new(EmailRoute::SecretToken).string().not_null())
         .col(
@@ -131,6 +134,7 @@ pub async fn initialize_database(mut db: DBConnection) -> Result<()> {
         .if_not_exists()
         .table(EmailRoute::Table)
         .col(EmailRoute::Domain)
+        .col(EmailRoute::User)
         .col(EmailRoute::IsActive)
         .build_any(schema_builder);
     sqlx::query(&email_routes_index)

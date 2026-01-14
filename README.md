@@ -9,6 +9,7 @@ A Rust-based email-to-webhook relay service that processes bounce notification e
 - Reliable webhook delivery with exponential backoff retry
 - HMAC-SHA512 signed payloads for authenticity verification
 - Multiple webhook routes per domain
+- User-specific and catch-all routing (e.g., `john@example.com` vs `*@example.com`)
 
 ## Installation
 
@@ -76,14 +77,30 @@ export EMAIL_HOOK_WORKER_MAX_RETRIES=50
 
 ### Adding a Webhook Route
 
-Insert a route into the `email_routes` table:
+Routes can be configured for specific users or as catch-all routes for entire domains.
+
+#### Catch-all Route (any user at domain)
 
 ```sql
 INSERT INTO email_routes (domain, url, secret_token, is_active)
 VALUES ('example.com', 'https://api.example.com/webhook/bounce', 'your-secret-key', true);
 ```
 
-The service will send bounce notifications for emails addressed to `*@example.com` to the configured webhook URL.
+This route matches all emails to `*@example.com`.
+
+#### User-specific Route
+
+```sql
+INSERT INTO email_routes (domain, user, url, secret_token, is_active)
+VALUES ('example.com', 'john', 'https://api.example.com/webhook/john', 'johns-secret', true);
+```
+
+This route only matches emails to `john@example.com`.
+
+#### Routing Behavior
+
+- **Both routes fire**: If an email matches both a user-specific route and a catch-all route, webhooks are sent to both destinations.
+- **Case-insensitive**: User matching is case-insensitive (`John@example.com` matches the `john` route).
 
 ## Webhook Payload
 

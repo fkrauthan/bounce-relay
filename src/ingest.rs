@@ -43,20 +43,20 @@ pub async fn execute_ingest(mut db: DBConnection) -> Result<()> {
         .map(|a| a.to_string())
         .unwrap_or("unknown".to_string());
 
-    let domain = target_address
-        .split('@')
-        .next_back()
-        .unwrap_or("")
-        .trim_matches('>');
+    let (user, domain) = target_address.split_once('@').unwrap_or(("", ""));
 
-    // Find valid webhook destinations
+    // Find valid webhook destinations (both specific user routes and catch-all domain routes)
     let query_builder = &*db.query_builder;
     let (sql, values) = Query::select()
         .columns([EmailRoute::Id])
         .from(EmailRoute::Table)
         .and_where(Expr::col(EmailRoute::Domain).eq(domain))
+        .and_where(
+            Expr::col(EmailRoute::User)
+                .eq(user)
+                .or(Expr::col(EmailRoute::User).is_null()),
+        )
         .and_where(Expr::col(EmailRoute::IsActive).eq(true))
-        // TODO add user check as well
         .build_any_sqlx(query_builder);
     let routes = sqlx::query_with(&sql, values)
         .fetch_all(&mut db.connection)
