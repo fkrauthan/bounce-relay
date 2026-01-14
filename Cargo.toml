@@ -2,6 +2,8 @@
 name = "email-hook"
 version = "0.1.0"
 edition = "2024"
+description = "Email-to-webhook relay service for Postfix bounce notifications"
+license = "MIT"
 
 [dependencies]
 anyhow = "1.0.100"
@@ -19,3 +21,22 @@ hmac = "0.12.1"
 base64 = "0.22.1"
 reqwest = "0.13.1"
 sha2 = "0.10.9"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[package.metadata.deb]
+maintainer = "Florian Krauthan <mail@fkrauthan.de>"
+copyright = "2026, Florian Krauthan"
+extended-description = "Email-to-webhook relay service for processing Postfix bounce notifications"
+section = "mail"
+priority = "optional"
+assets = [
+    ["target/release/email-hook", "usr/bin/", "755"],
+    ["settings.toml.sample", "etc/email-hook/settings.toml.sample", "644"]
+]
+conf-files = ["/etc/email-hook/settings.toml.sample"]

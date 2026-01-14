@@ -1,0 +1,27 @@
+# Email-Hook Configuration
+# Copy to /etc/email-hook/settings.toml and adjust values
+
+# Required: Database connection URL
+# Supports: PostgreSQL, MySQL, SQLite
+# Examples:
+#   postgres://user:pass@localhost/email_hook
+#   mysql://user:pass@localhost/email_hook
+#   sqlite:/var/lib/email-hook/data.db?mode=rwc
+#database_url = ""
+
+# Worker Settings (all optional, defaults shown)
+
+# Maximum retry attempts for failed webhook deliveries
+# worker_max_retries = 50
+
+# Maximum delay between retries in seconds (30 minutes)
+# worker_max_delay_seconds = 1800
+
+# Timeout for webhook HTTP requests in seconds
+# worker_api_timeout_seconds = 60
+
+# Interval between worker iterations in seconds
+# worker_interval_seconds = 5
+
+# Number of items to process per worker iteration
+# worker_items_per_iteration = 50
