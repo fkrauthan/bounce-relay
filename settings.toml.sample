@@ -9,6 +9,9 @@
 #   sqlite:/var/lib/email-hook/data.db?mode=rwc
 #database_url = ""
 
+# Log level: trace, debug, info, warn, error (default: info)
+# log_level = "info"
+
 # The address extension delimiter (needs to match recipient_delimiter in postfix config)
 # recipient_delimiter = "+"
 

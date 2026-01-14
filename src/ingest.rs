@@ -9,6 +9,7 @@ use time::UtcDateTime;
 use time::format_description::well_known::Rfc3339;
 use tokio::io;
 use tokio::io::AsyncReadExt;
+use tracing::{debug, info, warn};
 
 #[derive(Debug, Default)]
 struct BounceInfo {
@@ -32,6 +33,7 @@ pub async fn execute_ingest(config: AppConfig, mut db: DBConnection) -> Result<(
         .read_to_end(&mut buffer)
         .await
         .with_context(|| "Failed to read stdin")?;
+    debug!(bytes = buffer.len(), "Read email from stdin");
 
     let message = MessageParser::default()
         .parse(&buffer)
@@ -49,6 +51,8 @@ pub async fn execute_ingest(config: AppConfig, mut db: DBConnection) -> Result<(
         .split_once(config.recipient_delimiter)
         .map(|(user, _)| user)
         .unwrap_or(user);
+
+    info!(domain = domain, user = user, "Processing bounce");
 
     // Find valid webhook destinations (both specific user routes and catch-all domain routes)
     let query_builder = &*db.query_builder;
@@ -68,8 +72,10 @@ pub async fn execute_ingest(config: AppConfig, mut db: DBConnection) -> Result<(
         .await
         .with_context(|| "Failed to load applicable routes")?;
     if routes.is_empty() {
+        warn!(domain = domain, user = user, "No active routes found");
         return Ok(());
     }
+    debug!(count = routes.len(), "Found matching routes");
 
     // Extract relevant webhook information
     let bounce_info = parse_dsn(&message);
@@ -103,6 +109,7 @@ pub async fn execute_ingest(config: AppConfig, mut db: DBConnection) -> Result<(
             .execute(&mut db.connection)
             .await
             .with_context(|| format!("Failed to insert payload for route {}", route_id))?;
+        info!(route_id = route_id, "Queued webhook");
     }
 
     Ok(())

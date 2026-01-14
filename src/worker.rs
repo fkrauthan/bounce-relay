@@ -11,6 +11,7 @@ use sha2::Sha512;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use time::{Duration as TimeDuration, OffsetDateTime};
 use tokio::signal;
+use tracing::{debug, error, info, warn};
 
 type HmacSha512 = Hmac<Sha512>;
 
@@ -33,19 +34,32 @@ pub async fn execute_worker(config: AppConfig, mut db: DBConnection) -> Result<(
         ))
         .build()?;
 
+    info!(
+        interval_seconds = config.worker_interval_seconds,
+        items_per_iteration = config.worker_items_per_iteration,
+        "Worker started"
+    );
+
     let mut interval = tokio::time::interval(Duration::from_secs(config.worker_interval_seconds));
     loop {
         tokio::select! {
             _ = interval.tick() => {}
             _ = signal::ctrl_c() => {
+                info!("Worker shutting down");
                 break;
             }
         }
 
         let jobs = find_jobs(&mut db, config.worker_items_per_iteration).await?;
+        if !jobs.is_empty() {
+            debug!(count = jobs.len(), "Found jobs to process");
+        }
         for job in jobs {
             match process_job(&client, &job).await {
-                Ok(_) => delete_job(&mut db, job).await?,
+                Ok(_) => {
+                    info!(id = job.id, url = job.url.as_str(), "Delivered webhook");
+                    delete_job(&mut db, job).await?;
+                }
                 Err(e) => {
                     reschedule_job(
                         config.worker_max_retries,
@@ -121,9 +135,25 @@ async fn reschedule_job(
 ) -> Result<()> {
     let attempts = job.attempts + 1;
     let is_expired = max_retries > 0 && attempts >= max_retries;
-    let minutes_to_wait = 2_i64.pow(attempts as u32);
-    let next_try_at =
-        OffsetDateTime::now_utc() + TimeDuration::minutes(minutes_to_wait.min(max_delay));
+    let minutes_to_wait = 2_i64.pow(attempts as u32).min(max_delay);
+    let next_try_at = OffsetDateTime::now_utc() + TimeDuration::minutes(minutes_to_wait);
+
+    if is_expired {
+        error!(
+            id = job.id,
+            attempts = attempts,
+            error = error,
+            "Webhook expired after max retries"
+        );
+    } else {
+        warn!(
+            id = job.id,
+            attempt = attempts,
+            retry_in_minutes = minutes_to_wait,
+            error = error,
+            "Webhook failed, scheduling retry"
+        );
+    }
 
     let query_builder = &*db.query_builder;
     let (sql, values) = Query::update()

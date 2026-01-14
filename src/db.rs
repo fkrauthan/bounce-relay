@@ -7,6 +7,7 @@ use sea_query::{
 use sqlx::AnyConnection;
 use sqlx::Connection;
 use sqlx::any::install_default_drivers;
+use tracing::{debug, info};
 
 pub struct DBConnection {
     pub connection: AnyConnection,
@@ -81,7 +82,10 @@ pub async fn connect_database(config: &AppConfig) -> Result<DBConnection> {
         .await
         .with_context(|| "Failed to connect to database")?;
 
-    Ok(match connection.backend_name() {
+    let backend = connection.backend_name();
+    info!(backend = backend, "Connected to database");
+
+    Ok(match backend {
         "PostgreSQL" => DBConnection {
             connection,
             query_builder: Box::new(PostgresQueryBuilder {}),
@@ -97,13 +101,14 @@ pub async fn connect_database(config: &AppConfig) -> Result<DBConnection> {
             query_builder: Box::new(SqliteQueryBuilder {}),
             schema_builder: Box::new(SqliteQueryBuilder {}),
         },
-        _ => bail!("Unknown backend name: {}", connection.backend_name()),
+        _ => bail!("Unknown backend name: {}", backend),
     })
 }
 
 pub async fn initialize_database(mut db: DBConnection) -> Result<()> {
     let schema_builder = &*db.schema_builder;
 
+    info!("Creating email_routes table");
     let email_routes = Table::create()
         .table(EmailRoute::Table)
         .if_not_exists()
@@ -129,6 +134,7 @@ pub async fn initialize_database(mut db: DBConnection) -> Result<()> {
         .execute(&mut db.connection)
         .await?;
 
+    debug!("Creating index idx_route_lookup");
     let email_routes_index = Index::create()
         .name("idx_route_lookup")
         .if_not_exists()
@@ -141,6 +147,7 @@ pub async fn initialize_database(mut db: DBConnection) -> Result<()> {
         .execute(&mut db.connection)
         .await?;
 
+    debug!("Creating index idx_route_enabled_lookup");
     let email_routes_enabled_index = Index::create()
         .name("idx_route_enabled_lookup")
         .if_not_exists()
@@ -151,6 +158,7 @@ pub async fn initialize_database(mut db: DBConnection) -> Result<()> {
         .execute(&mut db.connection)
         .await?;
 
+    info!("Creating webhook_queue table");
     let webhook_queue = Table::create()
         .table(WebhookQueue::Table)
         .if_not_exists()
@@ -204,6 +212,7 @@ pub async fn initialize_database(mut db: DBConnection) -> Result<()> {
         .execute(&mut db.connection)
         .await?;
 
+    debug!("Creating index idx_queue_processing");
     let webhooks_queue_index = Index::create()
         .name("idx_queue_processing")
         .if_not_exists()
