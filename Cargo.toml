@@ -1,0 +1,17 @@
+[package]
+name = "email-hook"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.100"
+clap = { version = "4.5.54", features = ["derive"] }
+config = "0.15.19"
+mail-parser = "0.11.1"
+serde = { version = "1.0.228", features = ["derive"] }
+sqlx = { version = "0.8.6", features = ["any", "mysql", "postgres", "runtime-tokio", "sqlite"] }
+tokio = { version = "1.49.0", features = ["full"] }
+serde_json = "1.0.149"
+sea-query = "0.32.7"
+sea-query-binder = { version = "0.7.0", features = ["sqlx-postgres", "sqlx-sqlite", "sqlx-mysql", "sqlx-any", "with-time"] }
+time = { version = "0.3.45", features = ["formatting", "std"] }
