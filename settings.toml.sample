@@ -9,6 +9,10 @@
 #   sqlite:/var/lib/email-hook/data.db?mode=rwc
 #database_url = ""
 
+# The address extension delimiter (needs to match recipient_delimiter in postfix config)
+# recipient_delimiter = "+"
+
+
 # Worker Settings (all optional, defaults shown)
 
 # Maximum retry attempts for failed webhook deliveries

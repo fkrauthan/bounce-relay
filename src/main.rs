@@ -37,6 +37,8 @@ enum Commands {
 pub struct AppConfig {
     pub database_url: String,
 
+    pub recipient_delimiter: char,
+
     pub worker_max_retries: i32,
     pub worker_max_delay_seconds: i64,
     pub worker_api_timeout_seconds: u64,
@@ -44,6 +46,7 @@ pub struct AppConfig {
     pub worker_items_per_iteration: u64,
 }
 
+const RECIPIENT_DELIMITER_DEFAULT: char = '+';
 const WORKER_MAX_RETRIES_DEFAULT: i32 = 50;
 const WORKER_MAX_DELAY_SECONDS_DEFAULT: i64 = 60 * 30;
 const WORKER_API_TIMEOUT_SECONDS_DEFAULT: u64 = 60;
@@ -55,6 +58,10 @@ async fn main() -> Result<ExitCode> {
     let cli = Cli::parse();
 
     let mut config = Config::builder()
+        .set_default(
+            "recipient_delimiter",
+            RECIPIENT_DELIMITER_DEFAULT.to_string(),
+        )?
         .set_default("worker_max_retries", WORKER_MAX_RETRIES_DEFAULT)?
         .set_default("worker_max_delay_seconds", WORKER_MAX_DELAY_SECONDS_DEFAULT)?
         .set_default(
@@ -85,7 +92,7 @@ async fn main() -> Result<ExitCode> {
             initialize_database(db).await?;
         }
         Commands::Ingest => {
-            execute_ingest(db).await?;
+            execute_ingest(config, db).await?;
         }
         Commands::Worker => {
             execute_worker(config, db).await?;

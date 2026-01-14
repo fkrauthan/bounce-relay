@@ -1,3 +1,4 @@
+use crate::AppConfig;
 use crate::db::{DBConnection, EmailRoute, WebhookQueue};
 use anyhow::{Context, Result};
 use mail_parser::{Message, MessageParser, MimeHeaders, PartType};
@@ -24,7 +25,7 @@ struct MessageInfo {
     message_id: Option<String>,
 }
 
-pub async fn execute_ingest(mut db: DBConnection) -> Result<()> {
+pub async fn execute_ingest(config: AppConfig, mut db: DBConnection) -> Result<()> {
     // Parse message
     let mut buffer = Vec::new();
     io::stdin()
@@ -44,6 +45,10 @@ pub async fn execute_ingest(mut db: DBConnection) -> Result<()> {
         .unwrap_or("unknown".to_string());
 
     let (user, domain) = target_address.split_once('@').unwrap_or(("", ""));
+    let user = user
+        .split_once(config.recipient_delimiter)
+        .map(|(user, _)| user)
+        .unwrap_or(user);
 
     // Find valid webhook destinations (both specific user routes and catch-all domain routes)
     let query_builder = &*db.query_builder;
