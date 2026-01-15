@@ -32,7 +32,11 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Initialize the database schema
-    Init,
+    Init {
+        /// Print the SQL statements instead of executing them
+        #[arg(long)]
+        print: bool,
+    },
     /// Process incoming email from Postfix
     Ingest,
     /// Run the background worker
@@ -107,10 +111,14 @@ async fn main() -> Result<ExitCode> {
     let db = connect_database(&config).await?;
 
     match cli.command {
-        Commands::Init => {
-            debug!("Executing init subcommand");
-            initialize_database(db).await?;
-            info!("Database schema initialized successfully");
+        Commands::Init { print } => {
+            if !print {
+                debug!("Executing init subcommand");
+            }
+            initialize_database(db, print).await?;
+            if !print {
+                info!("Database schema initialized successfully");
+            }
         }
         Commands::Ingest => {
             debug!("Executing ingest subcommand");

@@ -109,10 +109,12 @@ pub async fn connect_database(config: &AppConfig) -> Result<DBConnection> {
     })
 }
 
-pub async fn initialize_database(mut db: DBConnection) -> Result<()> {
+pub async fn initialize_database(mut db: DBConnection, print_only: bool) -> Result<()> {
     let schema_builder = &*db.schema_builder;
 
-    info!("Creating email_routes table");
+    if !print_only {
+        info!("Creating email_routes table");
+    }
     let email_routes = Table::create()
         .table(EmailRoute::Table)
         .if_not_exists()
@@ -134,11 +136,17 @@ pub async fn initialize_database(mut db: DBConnection) -> Result<()> {
                 .default(true),
         )
         .build_any(schema_builder);
-    sqlx::query(&email_routes)
-        .execute(&mut db.connection)
-        .await?;
+    if print_only {
+        println!("{};", email_routes);
+    } else {
+        sqlx::query(&email_routes)
+            .execute(&mut db.connection)
+            .await?;
+    }
 
-    debug!("Creating index idx_route_lookup");
+    if !print_only {
+        debug!("Creating index idx_route_lookup");
+    }
     let email_routes_index = Index::create()
         .name("idx_route_lookup")
         .if_not_exists()
@@ -147,22 +155,34 @@ pub async fn initialize_database(mut db: DBConnection) -> Result<()> {
         .col(EmailRoute::User)
         .col(EmailRoute::IsActive)
         .build_any(schema_builder);
-    sqlx::query(&email_routes_index)
-        .execute(&mut db.connection)
-        .await?;
+    if print_only {
+        println!("{};", email_routes_index);
+    } else {
+        sqlx::query(&email_routes_index)
+            .execute(&mut db.connection)
+            .await?;
+    }
 
-    debug!("Creating index idx_route_enabled_lookup");
+    if !print_only {
+        debug!("Creating index idx_route_enabled_lookup");
+    }
     let email_routes_enabled_index = Index::create()
         .name("idx_route_enabled_lookup")
         .if_not_exists()
         .table(EmailRoute::Table)
         .col(EmailRoute::IsActive)
         .build_any(schema_builder);
-    sqlx::query(&email_routes_enabled_index)
-        .execute(&mut db.connection)
-        .await?;
+    if print_only {
+        println!("{};", email_routes_enabled_index);
+    } else {
+        sqlx::query(&email_routes_enabled_index)
+            .execute(&mut db.connection)
+            .await?;
+    }
 
-    info!("Creating webhook_queue table");
+    if !print_only {
+        info!("Creating webhook_queue table");
+    }
     let webhook_queue = Table::create()
         .table(WebhookQueue::Table)
         .if_not_exists()
@@ -212,11 +232,17 @@ pub async fn initialize_database(mut db: DBConnection) -> Result<()> {
                 .to(EmailRoute::Table, EmailRoute::Id),
         )
         .build_any(schema_builder);
-    sqlx::query(&webhook_queue)
-        .execute(&mut db.connection)
-        .await?;
+    if print_only {
+        println!("{};", webhook_queue);
+    } else {
+        sqlx::query(&webhook_queue)
+            .execute(&mut db.connection)
+            .await?;
+    }
 
-    debug!("Creating index idx_queue_processing");
+    if !print_only {
+        debug!("Creating index idx_queue_processing");
+    }
     let webhooks_queue_index = Index::create()
         .name("idx_queue_processing")
         .if_not_exists()
@@ -224,9 +250,13 @@ pub async fn initialize_database(mut db: DBConnection) -> Result<()> {
         .col(WebhookQueue::NextRetryAt)
         .col(WebhookQueue::IsExpired)
         .build_any(schema_builder);
-    sqlx::query(&webhooks_queue_index)
-        .execute(&mut db.connection)
-        .await?;
+    if print_only {
+        println!("{};", webhooks_queue_index);
+    } else {
+        sqlx::query(&webhooks_queue_index)
+            .execute(&mut db.connection)
+            .await?;
+    }
 
     Ok(())
 }
