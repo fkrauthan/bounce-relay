@@ -4,8 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-User=bounce-relay
-Group=bounce-relay
+User=nobody
 ExecStart=/usr/bin/bounce-relay worker
 Restart=always
 RestartSec=5
