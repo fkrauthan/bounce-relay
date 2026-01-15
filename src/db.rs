@@ -23,7 +23,7 @@ pub enum EmailRoute {
     User,
     Url,
     SecretToken,
-    IsActive,
+    IsEnabled,
 }
 impl Iden for EmailRoute {
     fn unquoted(&self, s: &mut dyn std::fmt::Write) {
@@ -37,7 +37,7 @@ impl Iden for EmailRoute {
                 Self::User => "user",
                 Self::Url => "url",
                 Self::SecretToken => "secret_token",
-                Self::IsActive => "is_active",
+                Self::IsEnabled => "is_enabled",
             }
         )
         .unwrap();
@@ -130,7 +130,7 @@ pub async fn initialize_database(mut db: DBConnection, print_only: bool) -> Resu
         .col(ColumnDef::new(EmailRoute::Url).string().not_null())
         .col(ColumnDef::new(EmailRoute::SecretToken).string().not_null())
         .col(
-            ColumnDef::new(EmailRoute::IsActive)
+            ColumnDef::new(EmailRoute::IsEnabled)
                 .boolean()
                 .not_null()
                 .default(true),
@@ -153,7 +153,7 @@ pub async fn initialize_database(mut db: DBConnection, print_only: bool) -> Resu
         .table(EmailRoute::Table)
         .col(EmailRoute::Domain)
         .col(EmailRoute::User)
-        .col(EmailRoute::IsActive)
+        .col(EmailRoute::IsEnabled)
         .build_any(schema_builder);
     if print_only {
         println!("{};", email_routes_index);
@@ -170,7 +170,7 @@ pub async fn initialize_database(mut db: DBConnection, print_only: bool) -> Resu
         .name("idx_route_enabled_lookup")
         .if_not_exists()
         .table(EmailRoute::Table)
-        .col(EmailRoute::IsActive)
+        .col(EmailRoute::IsEnabled)
         .build_any(schema_builder);
     if print_only {
         println!("{};", email_routes_enabled_index);

@@ -74,7 +74,7 @@ pub async fn execute_ingest(config: AppConfig, mut db: DBConnection) -> Result<(
                 .eq(user)
                 .or(Expr::col(EmailRoute::User).is_null()),
         )
-        .and_where(Expr::col(EmailRoute::IsActive).eq(true))
+        .and_where(Expr::col(EmailRoute::IsEnabled).eq(true))
         .build_any_sqlx(query_builder);
     let routes = sqlx::query_with(&sql, values)
         .fetch_all(&mut db.connection)

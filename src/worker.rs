@@ -195,7 +195,7 @@ async fn find_jobs(db: &mut DBConnection, max_jobs: u64) -> Result<Vec<JobToExec
         )
         .and_where(Expr::col(WebhookQueue::NextRetryAt).lte(Expr::current_timestamp()))
         .and_where(Expr::col(WebhookQueue::IsExpired).eq(false))
-        .and_where(Expr::col((EmailRoute::Table, EmailRoute::IsActive)).eq(true))
+        .and_where(Expr::col((EmailRoute::Table, EmailRoute::IsEnabled)).eq(true))
         .order_by(WebhookQueue::NextRetryAt, Order::Asc)
         .limit(max_jobs)
         .build_any_sqlx(query_builder);
