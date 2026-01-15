@@ -5,6 +5,7 @@ use mail_parser::{Message, MessageParser, MimeHeaders, PartType};
 use sea_query::{Expr, Iden, Query};
 use sea_query_binder::SqlxBinder;
 use sqlx::Row;
+use std::collections::HashMap;
 use time::UtcDateTime;
 use time::format_description::well_known::Rfc3339;
 use tokio::io;
@@ -24,6 +25,7 @@ struct MessageInfo {
     from: String,
     subject: String,
     message_id: Option<String>,
+    metadata: HashMap<String, String>,
 }
 
 pub async fn execute_ingest(config: AppConfig, mut db: DBConnection) -> Result<()> {
@@ -92,6 +94,7 @@ pub async fn execute_ingest(config: AppConfig, mut db: DBConnection) -> Result<(
         "message_id": original_info.message_id,
         "from": original_info.from,
         "subject": original_info.subject,
+        "metadata": original_info.metadata,
         "email": bounce_info.recipient,
         "reason": bounce_info.reason,
         "status": bounce_info.status,
@@ -126,6 +129,7 @@ fn parse_original_message(email: &Message) -> MessageInfo {
         from: "unknown".to_string(),
         subject: "unknown".to_string(),
         message_id: None,
+        metadata: HashMap::new(),
     };
 
     let mut parse_message = |message: &Message| {
@@ -140,6 +144,16 @@ fn parse_original_message(email: &Message) -> MessageInfo {
             .message_id()
             .or(email.message_id())
             .map(|id| id.to_string());
+
+        for header in message.headers() {
+            let header_name = header.name.as_str();
+            if header_name.starts_with("X-") || header_name.starts_with("x-") {
+                info.metadata.insert(
+                    header_name[2..].to_string(),
+                    header.value.as_text().unwrap_or("").to_string(),
+                );
+            }
+        }
     };
 
     for part in &email.parts {
