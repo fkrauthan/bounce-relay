@@ -52,7 +52,14 @@ pub async fn execute_ingest(config: AppConfig, mut db: DBConnection) -> Result<(
         .map(|(user, _)| user)
         .unwrap_or(user);
 
-    info!(domain = domain, user = user, "Processing bounce");
+    info!(domain = domain, user = user, "Processing email");
+
+    // Validate that this is a bounce email (has DSN delivery-status part)
+    let Some(bounce_info) = parse_dsn(&message) else {
+        warn!("Email is not a bounce notification, ignoring");
+        return Ok(());
+    };
+    debug!("Validated email as bounce notification");
 
     // Find valid webhook destinations (both specific user routes and catch-all domain routes)
     let query_builder = &*db.query_builder;
@@ -78,7 +85,6 @@ pub async fn execute_ingest(config: AppConfig, mut db: DBConnection) -> Result<(
     debug!(count = routes.len(), "Found matching routes");
 
     // Extract relevant webhook information
-    let bounce_info = parse_dsn(&message);
     let original_info = parse_original_message(&message);
     let payload = serde_json::json!({
         "event": "bounce",
@@ -155,19 +161,19 @@ fn parse_original_message(email: &Message) -> MessageInfo {
     info
 }
 
-fn parse_dsn(email: &Message) -> BounceInfo {
-    let mut info = BounceInfo {
-        recipient: "unknown".to_string(),
-        reason: "No reason found".to_string(),
-        status: "5.0.0".to_string(),
-        action: "failed".to_string(),
-    };
-
+fn parse_dsn(email: &Message) -> Option<BounceInfo> {
     for part in &email.parts {
         match part.content_type() {
             Some(ct)
                 if ct.c_type == "message" && ct.subtype().unwrap_or("") == "delivery-status" =>
             {
+                let mut info = BounceInfo {
+                    recipient: "unknown".to_string(),
+                    reason: "No reason found".to_string(),
+                    status: "5.0.0".to_string(),
+                    action: "failed".to_string(),
+                };
+
                 let text = part.text_contents().unwrap_or("");
                 for line in text.lines() {
                     let lower = line.to_lowercase();
@@ -184,10 +190,12 @@ fn parse_dsn(email: &Message) -> BounceInfo {
                         info.action = line.split(':').next_back().unwrap_or("").trim().to_string();
                     }
                 }
+
+                return Some(info);
             }
             _ => continue,
         }
     }
 
-    info
+    None
 }
