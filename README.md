@@ -1,4 +1,4 @@
-# email-hook
+# bounce-relay
 
 A Rust-based email-to-webhook relay service that processes bounce notification emails from Postfix and delivers JSON payloads to configured webhook endpoints.
 
@@ -17,14 +17,14 @@ A Rust-based email-to-webhook relay service that processes bounce notification e
 cargo build --release
 ```
 
-The binary will be at `target/release/email-hook`.
+The binary will be at `target/release/bounce-relay`.
 
 ## Usage
 
 ### Initialize the Database
 
 ```bash
-email-hook init
+bounce-relay init
 ```
 
 Creates the required database tables (`email_routes` and `webhook_queue`).
@@ -32,7 +32,7 @@ Creates the required database tables (`email_routes` and `webhook_queue`).
 ### Process Incoming Emails
 
 ```bash
-email-hook ingest
+bounce-relay ingest
 ```
 
 Reads an email from stdin, parses bounce information, and queues webhook deliveries.
@@ -40,7 +40,7 @@ Reads an email from stdin, parses bounce information, and queues webhook deliver
 ### Run the Worker
 
 ```bash
-email-hook worker
+bounce-relay worker
 ```
 
 Background process that delivers queued webhooks with automatic retry on failure.
@@ -49,9 +49,9 @@ Background process that delivers queued webhooks with automatic retry on failure
 
 Configuration is loaded from (in priority order):
 1. `./settings.toml`
-2. `/etc/email-hook/settings.toml`
+2. `/etc/bounce-relay/settings.toml`
 3. Custom file via `-c <path>`
-4. Environment variables with `EMAIL_HOOK_` prefix
+4. Environment variables with `BOUNCE_RELAY_` prefix
 
 ### Example settings.toml
 
@@ -69,8 +69,8 @@ worker_items_per_iteration = 50
 ### Environment Variables
 
 ```bash
-export EMAIL_HOOK_DATABASE_URL="sqlite:email_hook.db?mode=rwc"
-export EMAIL_HOOK_WORKER_MAX_RETRIES=50
+export BOUNCE_RELAY_DATABASE_URL="sqlite:email_hook.db?mode=rwc"
+export BOUNCE_RELAY_WORKER_MAX_RETRIES=50
 ```
 
 ## Database Setup
@@ -154,14 +154,14 @@ def verify_signature(secret: str, timestamp: str, payload: str, signature: str) 
 
 ## Postfix Configuration
 
-To configure Postfix to forward bounce emails to email-hook:
+To configure Postfix to forward bounce emails to bounce-relay:
 
 ### 1. Create a Transport Map Entry
 
 Edit `/etc/postfix/transport` and add:
 
 ```
-bounces.yourdomain.com    email-hook:
+bounces.yourdomain.com    bounce-relay:
 ```
 
 Run `postmap /etc/postfix/transport` after editing.
@@ -171,11 +171,11 @@ Run `postmap /etc/postfix/transport` after editing.
 Edit `/etc/postfix/master.cf` and add:
 
 ```
-email-hook unix  -       n       n       -       -       pipe
-  flags=F user=nobody argv=/usr/local/bin/email-hook ingest
+bounce-relay unix  -       n       n       -       -       pipe
+  flags=F user=nobody argv=/usr/local/bin/bounce-relay ingest
 ```
 
-Adjust the path to `email-hook` and the user as needed. The user must have read access to the configuration file and write access to the database.
+Adjust the path to `bounce-relay` and the user as needed. The user must have read access to the configuration file and write access to the database.
 
 ### 3. Update main.cf
 
@@ -187,7 +187,7 @@ transport_maps = hash:/etc/postfix/transport
 
 ### 4. Configure Bounce Handling
 
-To forward all bounces to email-hook, configure Postfix to send bounce notifications to a specific address that routes through the pipe:
+To forward all bounces to bounce-relay, configure Postfix to send bounce notifications to a specific address that routes through the pipe:
 
 ```
 # In /etc/postfix/main.cf
@@ -200,7 +200,7 @@ bounce_notice_recipient = bounces@bounces.yourdomain.com
 For simpler setups, you can use an alias in `/etc/aliases`:
 
 ```
-bounces: "|/usr/local/bin/email-hook ingest"
+bounces: "|/usr/local/bin/bounce-relay ingest"
 ```
 
 Run `newaliases` after editing, then configure Postfix to send bounces to this alias:
@@ -221,7 +221,7 @@ postfix reload
 
 ### systemd
 
-Create `/etc/systemd/system/email-hook-worker.service`:
+Create `/etc/systemd/system/bounce-relay-worker.service`:
 
 ```ini
 [Unit]
@@ -230,8 +230,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=email-hook
-ExecStart=/usr/local/bin/email-hook worker
+User=bounce-relay
+ExecStart=/usr/local/bin/bounce-relay worker
 Restart=always
 RestartSec=5
 
@@ -242,8 +242,8 @@ WantedBy=multi-user.target
 Enable and start:
 
 ```bash
-systemctl enable email-hook-worker
-systemctl start email-hook-worker
+systemctl enable bounce-relay-worker
+systemctl start bounce-relay-worker
 ```
 
 ## License

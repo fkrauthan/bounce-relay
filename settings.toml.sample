@@ -1,12 +1,12 @@
-# Email-Hook Configuration
-# Copy to /etc/email-hook/settings.toml and adjust values
+# Bounce-Relay Configuration
+# Copy to /etc/bounce-relay/settings.toml and adjust values
 
 # Required: Database connection URL
 # Supports: PostgreSQL, MySQL, SQLite
 # Examples:
 #   postgres://user:pass@localhost/email_hook
 #   mysql://user:pass@localhost/email_hook
-#   sqlite:/var/lib/email-hook/data.db?mode=rwc
+#   sqlite:/var/lib/bounce-relay/data.db?mode=rwc
 #database_url = ""
 
 # Log level: trace, debug, info, warn, error (default: info)

@@ -1,5 +1,5 @@
 [package]
-name = "email-hook"
+name = "bounce-relay"
 version = "0.1.0"
 edition = "2024"
 description = "Email-to-webhook relay service for Postfix bounce notifications"
@@ -38,7 +38,8 @@ extended-description = "Email-to-webhook relay service for processing Postfix bo
 section = "mail"
 priority = "optional"
 assets = [
-    ["target/release/email-hook", "usr/bin/", "755"],
-    ["settings.toml.sample", "etc/email-hook/settings.toml.sample", "644"]
+    ["target/release/bounce-relay", "usr/bin/", "755"],
+    ["settings.toml.sample", "etc/bounce-relay/settings.toml.sample", "644"],
+    ["debian/bounce-relay-worker.service", "lib/systemd/system/bounce-relay-worker.service", "644"]
 ]
-conf-files = ["/etc/email-hook/settings.toml.sample"]
+conf-files = ["/etc/bounce-relay/settings.toml.sample"]

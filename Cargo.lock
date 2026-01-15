@@ -164,6 +164,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "bounce-relay"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "clap",
+ "config",
+ "hmac",
+ "mail-parser",
+ "reqwest",
+ "sea-query",
+ "sea-query-binder",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sqlx",
+ "time",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -526,29 +549,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "email-hook"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base64",
- "clap",
- "config",
- "hmac",
- "mail-parser",
- "reqwest",
- "sea-query",
- "sea-query-binder",
- "serde",
- "serde_json",
- "sha2",
- "sqlx",
- "time",
- "tokio",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]

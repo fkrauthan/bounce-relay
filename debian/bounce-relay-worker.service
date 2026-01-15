@@ -1,0 +1,15 @@
+[Unit]
+Description=Bounce Relay Webhook Worker
+After=network.target
+
+[Service]
+Type=simple
+User=bounce-relay
+Group=bounce-relay
+ExecStart=/usr/bin/bounce-relay worker
+Restart=always
+RestartSec=5
+EnvironmentFile=-/etc/default/bounce-relay
+
+[Install]
+WantedBy=multi-user.target

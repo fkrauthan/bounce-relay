@@ -83,12 +83,12 @@ async fn main() -> Result<ExitCode> {
             WORKER_ITEMS_PER_ITERATION_DEFAULT,
         )?
         .add_source(config::File::with_name("./settings.toml").required(false))
-        .add_source(config::File::with_name("/etc/email-hook/settings.toml").required(false));
+        .add_source(config::File::with_name("/etc/bounce-relay/settings.toml").required(false));
     if let Some(ref config_path) = cli.config {
         config = config.add_source(config::File::from(config_path.clone()));
     }
     let config = config
-        .add_source(config::Environment::with_prefix("EMAIL_HOOK"))
+        .add_source(config::Environment::with_prefix("BOUNCE_RELAY"))
         .build()
         .with_context(|| "failed to read application settings")?
         .try_deserialize::<AppConfig>()
