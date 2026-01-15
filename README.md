@@ -82,7 +82,7 @@ Routes can be configured for specific users or as catch-all routes for entire do
 #### Catch-all Route (any user at domain)
 
 ```sql
-INSERT INTO email_routes (domain, url, secret_token, is_active)
+INSERT INTO email_routes (domain, url, secret_token, is_enabled)
 VALUES ('example.com', 'https://api.example.com/webhook/bounce', 'your-secret-key', true);
 ```
 
@@ -91,7 +91,7 @@ This route matches all emails to `*@example.com`.
 #### User-specific Route
 
 ```sql
-INSERT INTO email_routes (domain, user, url, secret_token, is_active)
+INSERT INTO email_routes (domain, user, url, secret_token, is_enabled)
 VALUES ('example.com', 'john', 'https://api.example.com/webhook/john', 'johns-secret', true);
 ```
 
@@ -172,7 +172,7 @@ Edit `/etc/postfix/master.cf` and add:
 
 ```
 bounce-relay unix  -       n       n       -       -       pipe
-  flags=F user=nobody argv=/usr/local/bin/bounce-relay ingest
+  flags=F user=nobody argv=/usr/bin/bounce-relay ingest
 ```
 
 Adjust the path to `bounce-relay` and the user as needed. The user must have read access to the configuration file and write access to the database.
@@ -200,7 +200,7 @@ bounce_notice_recipient = bounces@bounces.yourdomain.com
 For simpler setups, you can use an alias in `/etc/aliases`:
 
 ```
-bounces: "|/usr/local/bin/bounce-relay ingest"
+bounces: "|/usr/bin/bounce-relay ingest"
 ```
 
 Run `newaliases` after editing, then configure Postfix to send bounces to this alias:
@@ -225,12 +225,12 @@ Create `/etc/systemd/system/bounce-relay-worker.service`:
 
 ```ini
 [Unit]
-Description=Email Hook Webhook Worker
+Description=Bounce Relay Webhook Worker
 After=network.target
 
 [Service]
 Type=simple
-User=bounce-relay
+User=nobody
 ExecStart=/usr/local/bin/bounce-relay worker
 Restart=always
 RestartSec=5

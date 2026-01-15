@@ -25,6 +25,10 @@ struct Cli {
     #[arg(short, long, value_name = "LEVEL")]
     log_level: Option<String>,
 
+    /// Disable colored output
+    #[arg(long)]
+    no_color: bool,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -102,6 +106,7 @@ async fn main() -> Result<ExitCode> {
     let log_level = cli.log_level.as_deref().unwrap_or(&config.log_level);
 
     tracing_subscriber::fmt()
+        .with_ansi(!cli.no_color)
         .with_env_filter(
             EnvFilter::from_default_env()
                 .add_directive(log_level.parse().unwrap_or(tracing::Level::INFO.into())),
