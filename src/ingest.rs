@@ -48,13 +48,13 @@ pub async fn execute_ingest(config: AppConfig, mut db: DBConnection) -> Result<(
         .map(|a| a.to_string())
         .unwrap_or("unknown".to_string());
 
-    let (user, domain) = target_address.split_once('@').unwrap_or(("", ""));
-    let user = user
+    let (full_user, domain) = target_address.split_once('@').unwrap_or(("", ""));
+    let user = full_user
         .split_once(config.recipient_delimiter)
         .map(|(user, _)| user)
-        .unwrap_or(user);
+        .unwrap_or(full_user);
 
-    info!(domain = domain, user = user, "Processing email");
+    info!(domain = domain, user = full_user, "Processing email");
 
     // Validate that this is a bounce email (has DSN delivery-status part)
     let Some(bounce_info) = parse_dsn(&message) else {
@@ -71,8 +71,9 @@ pub async fn execute_ingest(config: AppConfig, mut db: DBConnection) -> Result<(
         .and_where(Expr::col(EmailRoute::Domain).eq(domain))
         .and_where(
             Expr::col(EmailRoute::User)
-                .eq(user)
-                .or(Expr::col(EmailRoute::User).is_null()),
+                .is_null()
+                .or(Expr::col(EmailRoute::User).eq(user))
+                .or(Expr::col(EmailRoute::User).eq(full_user)),
         )
         .and_where(Expr::col(EmailRoute::IsEnabled).eq(true))
         .build_any_sqlx(query_builder);
