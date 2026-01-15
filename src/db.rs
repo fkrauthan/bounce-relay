@@ -11,6 +11,7 @@ use tracing::{debug, info};
 
 pub struct DBConnection {
     pub connection: AnyConnection,
+    pub wrap_timestamp: bool,
     pub query_builder: Box<dyn QueryBuilder>,
     pub schema_builder: Box<dyn SchemaBuilder>,
 }
@@ -88,16 +89,19 @@ pub async fn connect_database(config: &AppConfig) -> Result<DBConnection> {
     Ok(match backend {
         "PostgreSQL" => DBConnection {
             connection,
+            wrap_timestamp: true,
             query_builder: Box::new(PostgresQueryBuilder {}),
             schema_builder: Box::new(PostgresQueryBuilder {}),
         },
         "MySQL" => DBConnection {
             connection,
+            wrap_timestamp: false,
             query_builder: Box::new(MysqlQueryBuilder {}),
             schema_builder: Box::new(MysqlQueryBuilder {}),
         },
         "SQLite" => DBConnection {
             connection,
+            wrap_timestamp: false,
             query_builder: Box::new(SqliteQueryBuilder {}),
             schema_builder: Box::new(SqliteQueryBuilder {}),
         },

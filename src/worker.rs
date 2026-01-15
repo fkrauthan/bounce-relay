@@ -5,7 +5,7 @@ use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
 use hmac::{Hmac, Mac};
 use reqwest::Client;
-use sea_query::{Expr, Order, Query};
+use sea_query::{Alias, Expr, Order, Query};
 use sea_query_binder::SqlxBinder;
 use sha2::Sha512;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -162,7 +162,14 @@ async fn reschedule_job(
             (WebhookQueue::Attempts, attempts.into()),
             (WebhookQueue::LastError, error.into()),
             (WebhookQueue::IsExpired, is_expired.into()),
-            (WebhookQueue::NextRetryAt, next_try_at.into()),
+            (
+                WebhookQueue::NextRetryAt,
+                if db.wrap_timestamp {
+                    Expr::val(next_try_at).cast_as(Alias::new("timestamp"))
+                } else {
+                    next_try_at.into()
+                },
+            ),
         ])
         .and_where(Expr::col(WebhookQueue::Id).eq(job.id))
         .build_any_sqlx(query_builder);
@@ -177,11 +184,7 @@ async fn find_jobs(db: &mut DBConnection, max_jobs: u64) -> Result<Vec<JobToExec
     let query_builder = &*db.query_builder;
     let (sql, values) = Query::select()
         .column((WebhookQueue::Table, WebhookQueue::Id))
-        .columns([
-            WebhookQueue::Payload,
-            WebhookQueue::Attempts,
-            WebhookQueue::NextRetryAt,
-        ])
+        .columns([WebhookQueue::Payload, WebhookQueue::Attempts])
         .column((EmailRoute::Table, EmailRoute::Url))
         .column((EmailRoute::Table, EmailRoute::SecretToken))
         .from(WebhookQueue::Table)
