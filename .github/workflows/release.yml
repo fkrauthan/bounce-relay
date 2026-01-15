@@ -41,9 +41,13 @@ jobs:
       - name: Build .deb package
         run: cargo deb --no-build
 
+      - name: Prepare assets
+        run: |
+          mv target/release/bounce-relay target/release/bounce-relay-amd64
+
       - name: Upload release artifacts
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            target/release/bounce-relay
+            target/release/bounce-relay-amd64
             target/debian/*.deb
