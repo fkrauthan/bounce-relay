@@ -172,7 +172,7 @@ Edit `/etc/postfix/master.cf` and add:
 
 ```
 bounce-relay unix  -       n       n       -       -       pipe
-  flags=F user=nobody argv=/usr/bin/bounce-relay ingest
+  flags=F user=nobody argv=/usr/bin/bounce-relay --no-color ingest
 ```
 
 Adjust the path to `bounce-relay` and the user as needed. The user must have read access to the configuration file and write access to the database.
