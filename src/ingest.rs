@@ -92,6 +92,7 @@ pub async fn execute_ingest(config: AppConfig, mut db: DBConnection) -> Result<(
     let payload = serde_json::json!({
         "event": "bounce",
         "timestamp": UtcDateTime::now().format(&Rfc3339)?,
+        "recipient": target_address,
         "message_id": original_info.message_id,
         "from": original_info.from,
         "subject": original_info.subject,
