@@ -191,8 +191,24 @@ fn parse_dsn(email: &Message) -> Option<BounceInfo> {
                 };
 
                 let text = part.text_contents().unwrap_or("");
+                let mut current_header: Option<&str> = None;
+
                 for line in text.lines() {
+                    // Handle continuation lines (RFC 2822 folding)
+                    if line.starts_with(' ') || line.starts_with('\t') {
+                        if let Some(header) = current_header {
+                            let continuation = line.trim();
+                            if header == "diagnostic-code" && !continuation.is_empty() {
+                                info.reason.push(' ');
+                                info.reason.push_str(continuation);
+                            }
+                        }
+                        continue;
+                    }
+
+                    current_header = None;
                     let lower = line.to_lowercase();
+
                     if lower.starts_with("original-recipient:")
                         || (lower.starts_with("final-recipient:") && info.recipient.eq("unknown"))
                     {
@@ -200,6 +216,7 @@ fn parse_dsn(email: &Message) -> Option<BounceInfo> {
                             line.split(';').next_back().unwrap_or("").trim().to_string();
                     } else if lower.starts_with("diagnostic-code:") {
                         info.reason = line.splitn(2, ':').last().unwrap_or("").trim().to_string();
+                        current_header = Some("diagnostic-code");
                     } else if lower.starts_with("status:") {
                         info.status = line.split(':').next_back().unwrap_or("").trim().to_string();
                     } else if lower.starts_with("action:") {
