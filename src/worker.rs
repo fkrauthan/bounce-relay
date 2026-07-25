@@ -3,10 +3,9 @@ use crate::db::{DBConnection, EmailRoute, WebhookQueue};
 use anyhow::{Context, Result, bail};
 use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use reqwest::Client;
-use sea_query::{Alias, Expr, Order, Query};
-use sea_query_binder::SqlxBinder;
+use sea_query::{Alias, Expr, ExprTrait, Order, Query};
 use sha2::Sha512;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use time::{Duration as TimeDuration, OffsetDateTime};
@@ -114,13 +113,13 @@ async fn process_job(client: &Client, job: &JobToExecute) -> Result<()> {
 }
 
 async fn delete_job(db: &mut DBConnection, job: JobToExecute) -> Result<()> {
-    let query_builder = &*db.query_builder;
-    let (sql, values) = Query::delete()
-        .from_table(WebhookQueue::Table)
-        .and_where(Expr::col(WebhookQueue::Id).eq(job.id))
-        .build_any_sqlx(query_builder);
+    let (sql, values) = db.backend.build_query(
+        Query::delete()
+            .from_table(WebhookQueue::Table)
+            .and_where(Expr::col(WebhookQueue::Id).eq(job.id)),
+    );
 
-    sqlx::query_with(&sql, values)
+    sqlx::query_with(sql, values)
         .execute(&mut db.connection)
         .await?;
     Ok(())
@@ -135,7 +134,7 @@ async fn reschedule_job(
 ) -> Result<()> {
     let attempts = job.attempts + 1;
     let is_expired = max_retries > 0 && attempts >= max_retries;
-    let minutes_to_wait = 2_i64.pow(attempts as u32).min(max_delay);
+    let minutes_to_wait = std::cmp::Ord::min(2_i64.pow(attempts as u32), max_delay);
     let next_try_at = OffsetDateTime::now_utc() + TimeDuration::minutes(minutes_to_wait);
 
     if is_expired {
@@ -155,52 +154,52 @@ async fn reschedule_job(
         );
     }
 
-    let query_builder = &*db.query_builder;
-    let (sql, values) = Query::update()
-        .table(WebhookQueue::Table)
-        .values([
-            (WebhookQueue::Attempts, attempts.into()),
-            (WebhookQueue::LastError, error.into()),
-            (WebhookQueue::IsExpired, is_expired.into()),
-            (
-                WebhookQueue::NextRetryAt,
-                if db.wrap_timestamp {
-                    Expr::val(next_try_at).cast_as(Alias::new("timestamp"))
-                } else {
-                    next_try_at.into()
-                },
-            ),
-        ])
-        .and_where(Expr::col(WebhookQueue::Id).eq(job.id))
-        .build_any_sqlx(query_builder);
+    let (sql, values) = db.backend.build_query(
+        Query::update()
+            .table(WebhookQueue::Table)
+            .values([
+                (WebhookQueue::Attempts, attempts.into()),
+                (WebhookQueue::LastError, error.into()),
+                (WebhookQueue::IsExpired, is_expired.into()),
+                (
+                    WebhookQueue::NextRetryAt,
+                    if db.wrap_timestamp {
+                        Expr::val(next_try_at).cast_as(Alias::new("timestamp"))
+                    } else {
+                        next_try_at.into()
+                    },
+                ),
+            ])
+            .and_where(Expr::col(WebhookQueue::Id).eq(job.id)),
+    );
 
-    sqlx::query_with(&sql, values)
+    sqlx::query_with(sql, values)
         .execute(&mut db.connection)
         .await?;
     Ok(())
 }
 
 async fn find_jobs(db: &mut DBConnection, max_jobs: u64) -> Result<Vec<JobToExecute>> {
-    let query_builder = &*db.query_builder;
-    let (sql, values) = Query::select()
-        .column((WebhookQueue::Table, WebhookQueue::Id))
-        .columns([WebhookQueue::Payload, WebhookQueue::Attempts])
-        .column((EmailRoute::Table, EmailRoute::Url))
-        .column((EmailRoute::Table, EmailRoute::SecretToken))
-        .from(WebhookQueue::Table)
-        .left_join(
-            EmailRoute::Table,
-            Expr::col((WebhookQueue::Table, WebhookQueue::EmailRouteId))
-                .equals((EmailRoute::Table, EmailRoute::Id)),
-        )
-        .and_where(Expr::col(WebhookQueue::NextRetryAt).lte(Expr::current_timestamp()))
-        .and_where(Expr::col(WebhookQueue::IsExpired).eq(false))
-        .and_where(Expr::col((EmailRoute::Table, EmailRoute::IsEnabled)).eq(true))
-        .order_by(WebhookQueue::NextRetryAt, Order::Asc)
-        .limit(max_jobs)
-        .build_any_sqlx(query_builder);
+    let (sql, values) = db.backend.build_query(
+        Query::select()
+            .column((WebhookQueue::Table, WebhookQueue::Id))
+            .columns([WebhookQueue::Payload, WebhookQueue::Attempts])
+            .column((EmailRoute::Table, EmailRoute::Url))
+            .column((EmailRoute::Table, EmailRoute::SecretToken))
+            .from(WebhookQueue::Table)
+            .left_join(
+                EmailRoute::Table,
+                Expr::col((WebhookQueue::Table, WebhookQueue::EmailRouteId))
+                    .equals((EmailRoute::Table, EmailRoute::Id)),
+            )
+            .and_where(Expr::col(WebhookQueue::NextRetryAt).lte(Expr::current_timestamp()))
+            .and_where(Expr::col(WebhookQueue::IsExpired).eq(false))
+            .and_where(Expr::col((EmailRoute::Table, EmailRoute::IsEnabled)).eq(true))
+            .order_by(WebhookQueue::NextRetryAt, Order::Asc)
+            .limit(max_jobs),
+    );
 
-    sqlx::query_as_with(&sql, values)
+    sqlx::query_as_with(sql, values)
         .fetch_all(&mut db.connection)
         .await
         .with_context(|| "Failed to load queue entries")

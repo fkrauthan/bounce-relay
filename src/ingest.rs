@@ -2,8 +2,7 @@ use crate::AppConfig;
 use crate::db::{DBConnection, EmailRoute, WebhookQueue};
 use anyhow::{Context, Result};
 use mail_parser::{Message, MessageParser, MimeHeaders, PartType};
-use sea_query::{Expr, Iden, Query};
-use sea_query_binder::SqlxBinder;
+use sea_query::{Expr, ExprTrait, Iden, Query};
 use sqlx::Row;
 use std::collections::HashMap;
 use time::UtcDateTime;
@@ -64,20 +63,20 @@ pub async fn execute_ingest(config: AppConfig, mut db: DBConnection) -> Result<(
     debug!("Validated email as bounce notification");
 
     // Find valid webhook destinations (both specific user routes and catch-all domain routes)
-    let query_builder = &*db.query_builder;
-    let (sql, values) = Query::select()
-        .columns([EmailRoute::Id])
-        .from(EmailRoute::Table)
-        .and_where(Expr::col(EmailRoute::Domain).eq(domain))
-        .and_where(
-            Expr::col(EmailRoute::User)
-                .is_null()
-                .or(Expr::col(EmailRoute::User).eq(user))
-                .or(Expr::col(EmailRoute::User).eq(full_user)),
-        )
-        .and_where(Expr::col(EmailRoute::IsEnabled).eq(true))
-        .build_any_sqlx(query_builder);
-    let routes = sqlx::query_with(&sql, values)
+    let (sql, values) = db.backend.build_query(
+        Query::select()
+            .columns([EmailRoute::Id])
+            .from(EmailRoute::Table)
+            .and_where(Expr::col(EmailRoute::Domain).eq(domain))
+            .and_where(
+                Expr::col(EmailRoute::User)
+                    .is_null()
+                    .or(Expr::col(EmailRoute::User).eq(user))
+                    .or(Expr::col(EmailRoute::User).eq(full_user)),
+            )
+            .and_where(Expr::col(EmailRoute::IsEnabled).eq(true)),
+    );
+    let routes = sqlx::query_with(sql, values)
         .fetch_all(&mut db.connection)
         .await
         .with_context(|| "Failed to load applicable routes")?;
@@ -111,12 +110,13 @@ pub async fn execute_ingest(config: AppConfig, mut db: DBConnection) -> Result<(
             .try_get(EmailRoute::Id.to_string().as_str())
             .with_context(|| "Could not read route id")?;
 
-        let (sql, values) = Query::insert()
-            .into_table(WebhookQueue::Table)
-            .columns([WebhookQueue::EmailRouteId, WebhookQueue::Payload])
-            .values_panic([route_id.into(), payload.clone().into()])
-            .build_any_sqlx(query_builder);
-        sqlx::query_with(&sql, values)
+        let (sql, values) = db.backend.build_query(
+            Query::insert()
+                .into_table(WebhookQueue::Table)
+                .columns([WebhookQueue::EmailRouteId, WebhookQueue::Payload])
+                .values_panic([route_id.into(), payload.clone().into()]),
+        );
+        sqlx::query_with(sql, values)
             .execute(&mut db.connection)
             .await
             .with_context(|| format!("Failed to insert payload for route {}", route_id))?;
@@ -210,7 +210,8 @@ fn parse_dsn(email: &Message) -> Option<BounceInfo> {
                     let lower = line.to_lowercase();
 
                     if lower.starts_with("original-recipient:")
-                        || (lower.starts_with("final-recipient:") && info.recipient.eq("unknown"))
+                        || (lower.starts_with("final-recipient:")
+                            && str::eq(&info.recipient, "unknown"))
                     {
                         info.recipient =
                             line.split(';').next_back().unwrap_or("").trim().to_string();

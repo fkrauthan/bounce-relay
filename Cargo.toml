@@ -1,6 +1,6 @@
 [package]
 name = "bounce-relay"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 description = "Email-to-webhook relay service for Postfix bounce notifications"
 license = "MIT"
@@ -11,16 +11,17 @@ clap = { version = "4.5.54", features = ["derive"] }
 config = "0.15.19"
 mail-parser = "0.11.1"
 serde = { version = "1.0.228", features = ["derive"] }
-sqlx = { version = "0.8.6", features = ["any", "mysql", "postgres", "runtime-tokio", "sqlite"] }
+sqlx = { version = "0.9.0", features = ["any", "mysql", "postgres", "runtime-tokio", "sqlite"] }
 tokio = { version = "1.49.0", features = ["full"] }
 serde_json = "1.0.149"
-sea-query = "0.32.7"
-sea-query-binder = { version = "0.7.0", features = ["sqlx-postgres", "sqlx-sqlite", "sqlx-mysql", "sqlx-any", "with-time"] }
+sea-query = "1.0.1"
+sea-query-sqlx = { version = "0.9.1", features = ["sqlx-postgres", "sqlx-sqlite", "sqlx-mysql", "sqlx-any", "with-time"] }
+#sea-query-binder = { version = "0.7.0", features = ["sqlx-postgres", "sqlx-sqlite", "sqlx-mysql", "sqlx-any", "with-time"] }
 time = { version = "0.3.45", features = ["formatting", "std"] }
-hmac = "0.12.1"
-base64 = "0.22.1"
+hmac = "0.13.0"
+base64 = "0.23.0"
 reqwest = "0.13.1"
-sha2 = "0.10.9"
+sha2 = "0.11.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
